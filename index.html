@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Afiliados Scanner + DNI | Fullscreen</title>
+    <!-- Librería para leer códigos de barras -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <!-- Librería para procesar Excel / CSV -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: system-ui, 'Segoe UI', 'Roboto', 'Noto Sans', sans-serif;
+            background: #f1f5f9;
+            color: #0f172a;
+            transition: all 0.2s ease;
+        }
+
+        /* Contenedor principal */
+        .app-container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 16px 14px 40px 14px;
+        }
+
+        /* Modo pantalla completa: ocupa todo el viewport */
+        body.fullscreen-mode {
+            background: #0b2b38;
+        }
+        body.fullscreen-mode .app-container {
+            max-width: 100%;
+            padding: 20px 18px 30px 18px;
+            min-height: 100vh;
+        }
+        body.fullscreen-mode .card {
+            background: rgba(255,255,255,0.96);
+            backdrop-filter: blur(0px);
+        }
+
+        /* Header con botón fullscreen */
+        .header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        h1 {
+            font-size: 1.65rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #0f3b5c, #1b6b87);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.3px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-fullscreen {
+            background: #1e293b;
+            border: none;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .btn-fullscreen:active {
+            transform: scale(0.96);
+            background: #0f172a;
+        }
+        .sub {
+            color: #475569;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            border-left: 3px solid #2c7da0;
+            padding-left: 12px;
+            margin-top: 4px;
+        }
+
+        /* Tarjetas estilo moderno */
+        .card {
+            background: white;
+            border-radius: 32px;
+            padding: 18px 20px;
+            margin-bottom: 22px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.01);
+            transition: all 0.2s;
+        }
+        .card-title {
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #1e4663;
+        }
+        .file-label {
+            background: #eef2ff;
+            border-radius: 50px;
+            padding: 12px 18px;
+            text-align: center;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+            font-weight: 500;
+            border: 1px dashed #94a3b8;
+            transition: 0.15s;
+            font-size: 0.95rem;
+        }
+        .file-label:active {
+            background: #e2e8f0;
+        }
+        input[type="file"] { display: none; }
+        .status-badge {
+            margin-top: 12px;
+            font-size: 0.8rem;
+            padding: 6px 14px;
+            border-radius: 60px;
+            display: inline-block;
+            background: #e9eef3;
+        }
+        .success { background: #d1fae5; color: #065f46; }
+        .error { background: #fee2e2; color: #991b1b; }
+        .info-text {
+            font-size: 0.75rem;
+            color: #4b5563;
+            margin-top: 8px;
+        }
+
+        /* Escáner area */
+        .scanner-wrapper {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #reader {
+            width: 100%;
+            max-width: 100%;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            background: #000;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 16px 0 8px;
+        }
+        .btn-primary {
+            background: #2c7da0;
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            flex: 1;
+            justify-content: center;
+            transition: 0.1s;
+        }
+        .btn-secondary {
+            background: #64748b;
+        }
+        .btn-primary:active, .btn-secondary:active {
+            transform: scale(0.97);
+        }
+        .result-card {
+            background: #e6f4fa;
+            border-radius: 28px;
+            padding: 12px 16px;
+            margin-top: 16px;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        /* Zona manual DNI */
+        .manual-area {
+            background: #f8fafc;
+            border-radius: 28px;
+            padding: 16px;
+            margin-top: 8px;
+            border: 1px solid #e2edf2;
+        }
+        .dni-flex {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        .dni-flex input {
+            flex: 2;
+            min-width: 150px;
+            padding: 14px 18px;
+            font-size: 1rem;
+            border-radius: 60px;
+            border: 1px solid #cbd5e1;
+            background: white;
+            text-align: center;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+        .dni-flex input:focus {
+            outline: none;
+            border-color: #2c7da0;
+            box-shadow: 0 0 0 3px rgba(44,125,160,0.2);
+        }
+        .btn-buscar {
+            background: #1e6f5c;
+            flex: 1;
+        }
+
+        /* Tarjetas de resultados */
+        .tarjetas-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 16px;
+            max-height: 55vh;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .tarjeta {
+            background: white;
+            border-radius: 28px;
+            padding: 18px;
+            border-left: 5px solid #2c7da0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            transition: all 0.1s;
+        }
+        .tarjeta-header {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+        .cuil-highlight {
+            background: #d9eef7;
+            padding: 4px 14px;
+            border-radius: 40px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .detalle {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+            font-size: 0.78rem;
+            color: #1e293b;
+        }
+        .detalle span {
+            background: #f1f5f9;
+            padding: 5px 12px;
+            border-radius: 30px;
+        }
+        .result-count {
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: #d9f0ec;
+            display: inline-block;
+            padding: 5px 16px;
+            border-radius: 40px;
+            margin: 4px 0 10px 0;
+        }
+        .no-data {
+            text-align: center;
+            color: #5b6e8c;
+            padding: 32px 20px;
+            background: #f9fbfe;
+            border-radius: 28px;
+            font-size: 0.9rem;
+        }
+        footer {
+            text-align: center;
+            font-size: 0.68rem;
+            color: #62748c;
+            margin-top: 24px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 18px;
+        }
+
+        /* Scroll suave */
+        .tarjetas-grid::-webkit-scrollbar {
+            width: 4px;
+        }
+        .tarjetas-grid::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+        .tarjetas-grid::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 500px) {
+            .app-container {
+                padding: 12px 12px 32px;
+            }
+            .card {
+                padding: 14px 16px;
+            }
+            .btn-primary {
+                padding: 10px 16px;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="header-flex">
+        <h1>📱 Afiliado + DNI</h1>
+        <button id="fullscreenBtn" class="btn-fullscreen">⛶ Pantalla completa</button>
+    </div>
+    <div class="sub">🔎 Escáner código barras | ✍️ Ingreso manual | Busca por DNI en tu base</div>
+
+    <!-- 1. Carga de archivo -->
+    <div class="card">
+        <div class="card-title">📂 1. Base de datos (Excel/CSV)</div>
+        <label class="file-label" for="fileInput">📎 Seleccionar archivo .xlsx o .csv</label>
+        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv, .CSV, .XLSX">
+        <div id="fileStatus" class="status-badge">⚡ Sin archivo cargado</div>
+        <div id="statsInfo" class="info-text"></div>
+    </div>
+
+    <!-- 2. Escáner QR / código barras -->
+    <div class="card">
+        <div class="card-title">🔍 2. Escanear código (número de afiliado)</div>
+        <div class="scanner-wrapper">
+            <div id="reader" style="width:100%;"></div>
+            <div class="btn-group">
+                <button id="startScanBtn" class="btn-primary">📷 Iniciar escáner</button>
+                <button id="stopScanBtn" class="btn-primary btn-secondary">⏹️ Detener</button>
+            </div>
+            <div id="scannedDNIInfo" class="result-card">
+                📍 <strong>Último DNI:</strong> ---
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Ingreso manual de DNI -->
+    <div class="card">
+        <div class="card-title">✍️ 3. Buscar por DNI manual</div>
+        <div class="manual-area">
+            <div class="dni-flex">
+                <input type="number" id="manualDniInput" placeholder="Ej: 12345678" inputmode="numeric">
+                <button id="searchByDniBtn" class="btn-primary btn-buscar">🔎 Buscar</button>
+            </div>
+            <div class="info-text" style="margin-top: 12px;">👉 Ingresá DNI sin puntos (6 a 9 dígitos) y presioná buscar.</div>
+        </div>
+        <div id="manualDniDisplay" class="result-card" style="margin-top: 12px; background:#f1f3f5;">
+            🖊️ <strong>DNI a buscar:</strong> (pendiente)
+        </div>
+    </div>
+
+    <!-- 4. Resultados -->
+    <div class="card">
+        <div class="card-title">📋 4. CUILs y registros encontrados</div>
+        <div id="resultInfo" class="result-count">🔎 Esperando búsqueda...</div>
+        <div id="tarjetasContainer" class="tarjetas-grid">
+            <div class="no-data">📌 Cargá un archivo y luego escaneá o ingresá DNI</div>
+        </div>
+    </div>
+    <footer>✅ La base debe incluir columna 'cuil_usuario_alta' o 'cuil' (11 dígitos).<br>
+    📌 Escáner interpreta afiliado con formato: 1 + DNI (masculino) o 2 + DNI (femenino).</footer>
+</div>
+
+<script>
+    // ---------- Variables ----------
+    let dataset = [];
+    let columnas = [];
+    let currentDni = null;
+    let html5QrCode = null;
+    let isScanning = false;
+
+    // Mapeo flexible
+    const COL_MAPPING = {
+        cuil: ['cuil_usuario_alta', 'cuil', 'CUIL', 'Cuil', 'numero_cuil'],
+        establecimiento: ['establecimiento', 'Establecimiento', 'establec'],
+        empresa: ['empresa', 'Empresa', 'razon_social'],
+        numero_linea: ['numero_linea', 'linea', 'telefono_linea', 'linea_numero'],
+        condicion_laboral: ['condicion_laboral', 'condicion', 'CondicionLaboral'],
+        telefono_marca: ['telefono_marca', 'marca', 'marca_telefono'],
+        telefono_modelo: ['telefono_modelo', 'modelo', 'modelo_telefono'],
+        telefono_imei: ['telefono_imei', 'imei'],
+        telefono_ns: ['telefono_ns', 'ns', 'serial_number'],
+        iniciador: ['iniciador', 'Iniciador', 'creado_por']
+    };
+
+    function getValueByFlexibleKey(row, possibleKeys) {
+        for (let key of possibleKeys) {
+            if (row.hasOwnProperty(key) && row[key] !== undefined && row[key] !== null && row[key] !== "") {
+                return row[key];
+            }
+        }
+        return null;
+    }
+
+    // Extraer DNI desde código de afiliado (ej: 112345678 -> 12345678)
+    function extractDNIFromAfiliado(afiliadoStr) {
+        if (!afiliadoStr) return null;
+        let raw = String(afiliadoStr).trim().replace(/[-\s]/g, '');
+        if (/^\d{6,9}$/.test(raw)) return raw;
+        let match = raw.match(/^[12](\d{6,9})$/);
+        if (match && match[1]) return match[1];
+        let looseMatch = raw.match(/(?:1|2)(\d{6,9})/);
+        if (looseMatch && looseMatch[1]) return looseMatch[1];
+        return null;
+    }
+
+    // Extraer DNI desde CUIL (8 centrales)
+    function extractDNIFromCUIL(cuilStr) {
+        if (!cuilStr) return null;
+        let clean = String(cuilStr).replace(/[^0-9]/g, '');
+        if (clean.length === 11) {
+            let dniPart = clean.substring(2, 10);
+            if (/^\d{8}$/.test(dniPart)) return dniPart;
+        } else if (clean.length === 10) {
+            let dniPart = clean.substring(2, 10);
+            if (/^\d{8}$/.test(dniPart)) return dniPart;
+        }
+        return null;
+    }
+
+    // Buscar registros cuyo CUIL contenga el DNI exacto en los 8 dígitos centrales
+    function buscarRegistrosPorDNI(dni) {
+        if (!dataset.length) return [];
+        if (!dni) return [];
+        let dniStr = String(dni).padStart(8, '0');
+        let resultados = [];
+
+        for (let row of dataset) {
+            let cuilValue = getValueByFlexibleKey(row, COL_MAPPING.cuil);
+            if (!cuilValue) continue;
+            let cleanCuil = String(cuilValue).replace(/[^0-9]/g, '');
+            let dniDesdeCuil = extractDNIFromCUIL(cleanCuil);
+            if (dniDesdeCuil === dniStr) {
+                resultados.push({ ...row, cuilRaw: cuilValue });
+            } 
+            else if (cleanCuil.length === 11) {
+                let centralDni = cleanCuil.substring(2, 10);
+                if (centralDni === dniStr) {
+                    resultados.push({ ...row, cuilRaw: cuilValue });
+                }
+            }
+            else if (cleanCuil.includes(dniStr) && cleanCuil.length >= 10) {
+                resultados.push({ ...row, cuilRaw: cuilValue });
+            }
+        }
+        // eliminar duplicados simples
+        const unique = [];
+        const map = new Set();
+        for (let r of resultados) {
+            let key = JSON.stringify(r);
+            if (!map.has(key)) {
+                map.add(key);
+                unique.push(r);
+            }
+        }
+        return unique;
+    }
+
+    function renderTarjetas(resultados, dniBuscado) {
+        const container = document.getElementById('tarjetasContainer');
+        const resultInfoSpan = document.getElementById('resultInfo');
+        if (!resultados.length) {
+            container.innerHTML = `<div class="no-data">😞 No se encontraron CUILs asociados al DNI <strong>${escapeHtml(dniBuscado)}</strong>.<br>Verifique que la columna 'cuil_usuario_alta' tenga CUILs válidos.</div>`;
+            resultInfoSpan.innerHTML = `🔎 0 coincidencias para DNI: ${escapeHtml(dniBuscado || '?')}`;
+            return;
+        }
+        resultInfoSpan.innerHTML = `✅ ${resultados.length} registro(s) encontrado(s) para DNI ${escapeHtml(dniBuscado)}`;
+        let html = '';
+        for (let reg of resultados) {
+            const cuilMostrar = reg.cuilRaw || getValueByFlexibleKey(reg, COL_MAPPING.cuil) || 'No especificado';
+            const establec = getValueByFlexibleKey(reg, COL_MAPPING.establecimiento) || '—';
+            const empresaVal = getValueByFlexibleKey(reg, COL_MAPPING.empresa) || '—';
+            const linea = getValueByFlexibleKey(reg, COL_MAPPING.numero_linea) || '—';
+            const condLaboral = getValueByFlexibleKey(reg, COL_MAPPING.condicion_laboral) || '—';
+            const telefonoMarca = getValueByFlexibleKey(reg, COL_MAPPING.telefono_marca) || '—';
+            const telefonoModelo = getValueByFlexibleKey(reg, COL_MAPPING.telefono_modelo) || '—';
+            const imei = getValueByFlexibleKey(reg, COL_MAPPING.telefono_imei) || '—';
+            const ns = getValueByFlexibleKey(reg, COL_MAPPING.telefono_ns) || '—';
+            const iniciadorVal = getValueByFlexibleKey(reg, COL_MAPPING.iniciador) || '—';
+
+            html += `
+                <div class="tarjeta">
+                    <div class="tarjeta-header">
+                        <strong>📇 CUIL</strong>
+                        <span class="cuil-highlight">${escapeHtml(cuilMostrar)}</span>
+                    </div>
+                    <div class="detalle">
+                        <span>🏢 Establecimiento: ${escapeHtml(establec)}</span>
+                        <span>🏭 Empresa: ${escapeHtml(empresaVal)}</span>
+                        <span>📞 Línea: ${escapeHtml(linea)}</span>
+                        <span>💼 Condición: ${escapeHtml(condLaboral)}</span>
+                    </div>
+                    <div class="detalle">
+                        <span>📱 Marca: ${escapeHtml(telefonoMarca)}</span>
+                        <span>📱 Modelo: ${escapeHtml(telefonoModelo)}</span>
+                        <span>🆔 IMEI: ${escapeHtml(imei)}</span>
+                        <span>🔢 NS: ${escapeHtml(ns)}</span>
+                        <span>👤 Iniciador: ${escapeHtml(iniciadorVal)}</span>
+                    </div>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+    }
+
+    function realizarBusqueda(dni) {
+        if (!dni) {
+            document.getElementById('resultInfo').innerHTML = `⚠️ DNI no válido`;
+            document.getElementById('tarjetasContainer').innerHTML = `<div class="no-data">❌ Ingresá un DNI válido.</div>`;
+            return;
+        }
+        if (!dataset.length) {
+            document.getElementById('tarjetasContainer').innerHTML = `<div class="no-data">📂 Primero cargá la base de datos (Excel/CSV).</div>`;
+            document.getElementById('resultInfo').innerHTML = `⚠️ Base no cargada.`;
+            return;
+        }
+        const registros = buscarRegistrosPorDNI(dni);
+        renderTarjetas(registros, dni);
+    }
+
+    // Eventos escáner
+    function onScanSuccess(decodedText) {
+        if (!decodedText) return;
+        const dniExtraido = extractDNIFromAfiliado(decodedText);
+        if (!dniExtraido) {
+            document.getElementById('scannedDNIInfo').innerHTML = `⚠️ <strong>Formato inválido:</strong> "${escapeHtml(decodedText)}" (no se extrajo DNI)`;
+            return;
+        }
+        currentDni = dniExtraido;
+        document.getElementById('scannedDNIInfo').innerHTML = `✅ <strong>DNI escaneado:</strong> ${dniExtraido}<br><span style="font-size:0.7rem;">Código: ${escapeHtml(decodedText)}</span>`;
+        document.getElementById('manualDniInput').value = dniExtraido;
+        document.getElementById('manualDniDisplay').innerHTML = `🖊️ <strong>DNI a buscar:</strong> ${dniExtraido}`;
+        realizarBusqueda(dniExtraido);
+    }
+
+    function onScanFailure(err) { /* silencioso */ }
+
+    async function startScanner() {
+        if (isScanning) return;
+        if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+        try {
+            await html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 12, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0, disableFlip: false },
+                onScanSuccess,
+                onScanFailure
+            );
+            isScanning = true;
+        } catch (err) {
+            alert("No se pudo acceder a la cámara. Verificá permisos.");
+        }
+    }
+
+    async function stopScanner() {
+        if (html5QrCode && isScanning) {
+            await html5QrCode.stop();
+            isScanning = false;
+        }
+    }
+
+    // Cargar archivo Excel/CSV
+    function handleFileUpload(file) {
+        const fileExt = file.name.split('.').pop().toLowerCase();
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                let workbook;
+                const data = e.target.result;
+                if (fileExt === 'csv') workbook = XLSX.read(data, { type: 'binary', raw: true });
+                else workbook = XLSX.read(data, { type: 'binary' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+                if (!rows.length) {
+                    showFileStatus("Archivo sin datos.", false);
+                    dataset = [];
+                    return;
+                }
+                dataset = rows;
+                columnas = Object.keys(rows[0]);
+                showFileStatus(`✅ Cargado: ${rows.length} registros`, true);
+                document.getElementById('statsInfo').innerHTML = `📋 Columnas: ${columnas.slice(0,4).join(', ')}${columnas.length>4 ? '...' : ''}`;
+                if (currentDni) realizarBusqueda(currentDni);
+                else {
+                    document.getElementById('tarjetasContainer').innerHTML = `<div class="no-data">📌 Base cargada. Escaneá o ingresá un DNI.</div>`;
+                    document.getElementById('resultInfo').innerHTML = `🔎 Esperando búsqueda...`;
+                }
+            } catch(err) {
+                showFileStatus("Error al leer archivo.", false);
+                dataset = [];
+            }
+        };
+        if (fileExt === 'csv') reader.readAsBinaryString(file);
+        else reader.readAsBinaryString(file);
+    }
+
+    function showFileStatus(msg, isSuccess) {
+        const div = document.getElementById('fileStatus');
+        div.textContent = msg;
+        div.classList.remove('success', 'error');
+        div.classList.add(isSuccess ? 'success' : 'error');
+    }
+
+    function manualSearch() {
+        let dniRaw = document.getElementById('manualDniInput').value.trim();
+        if (!dniRaw || !/^\d{6,9}$/.test(dniRaw)) {
+            alert("Ingresá un DNI válido (6-9 dígitos numéricos)");
+            return;
+        }
+        currentDni = dniRaw;
+        document.getElementById('manualDniDisplay').innerHTML = `🖊️ <strong>DNI a buscar:</strong> ${dniRaw}`;
+        document.getElementById('scannedDNIInfo').innerHTML = `📍 <strong>Último DNI:</strong> ${dniRaw} (manual)`;
+        realizarBusqueda(currentDni);
+    }
+
+    // Fullscreen API - compatible móviles
+    function toggleFullscreen() {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            const elem = document.documentElement;
+            const requestMethod = elem.requestFullscreen || elem.webkitRequestFullscreen;
+            if (requestMethod) {
+                requestMethod.call(elem);
+                document.body.classList.add('fullscreen-mode');
+            }
+        } else {
+            const exitMethod = document.exitFullscreen || document.webkitExitFullscreen;
+            if (exitMethod) {
+                exitMethod.call(document);
+                document.body.classList.remove('fullscreen-mode');
+            }
+        }
+    }
+    // Evento para detectar salida de fullscreen con ESC
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            document.body.classList.remove('fullscreen-mode');
+        } else {
+            document.body.classList.add('fullscreen-mode');
+        }
+    });
+    document.addEventListener('webkitfullscreenchange', () => {
+        if (!document.webkitFullscreenElement) document.body.classList.remove('fullscreen-mode');
+        else document.body.classList.add('fullscreen-mode');
+    });
+
+    // Listeners
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+        if (e.target.files[0]) handleFileUpload(e.target.files[0]);
+        else { dataset = []; showFileStatus("Ningún archivo", false); }
+    });
+    document.getElementById('startScanBtn').addEventListener('click', startScanner);
+    document.getElementById('stopScanBtn').addEventListener('click', stopScanner);
+    document.getElementById('searchByDniBtn').addEventListener('click', manualSearch);
+    document.getElementById('manualDniInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') manualSearch(); });
+    document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+
+    window.addEventListener('beforeunload', () => { if (html5QrCode && isScanning) html5QrCode.stop(); });
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+    // Inicial
+    document.getElementById('tarjetasContainer').innerHTML = `<div class="no-data">📲 Cargá un archivo .xlsx o .csv con la base de afiliados.</div>`;
+</script>
+</body>
+</html>
