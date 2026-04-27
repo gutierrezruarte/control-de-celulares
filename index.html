@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Afiliados Scanner + DNI | Con Pitido y DNI Exacto</title>
-    <!-- Librería para leer códigos de barras -->
+    <title>Escáner Full Área + DNI | Búsqueda en Base</title>
+    <!-- Librería para leer códigos de barras (escanea todo el frame) -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <!-- Librería para procesar Excel / CSV -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
@@ -18,7 +18,7 @@
 
         body {
             font-family: system-ui, 'Segoe UI', 'Roboto', 'Noto Sans', sans-serif;
-            background: #f1f5f9;
+            background: #eef2f8;
             color: #0f172a;
             transition: all 0.2s ease;
         }
@@ -27,16 +27,16 @@
         .app-container {
             max-width: 700px;
             margin: 0 auto;
-            padding: 16px 14px 40px 14px;
+            padding: 14px 12px 36px 12px;
         }
 
         /* Modo pantalla completa */
         body.fullscreen-mode {
-            background: #0b2b38;
+            background: #0a2a33;
         }
         body.fullscreen-mode .app-container {
             max-width: 100%;
-            padding: 20px 18px 30px 18px;
+            padding: 16px 16px 24px 16px;
             min-height: 100vh;
         }
         body.fullscreen-mode .card {
@@ -48,35 +48,32 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 10px;
         }
         h1 {
-            font-size: 1.65rem;
+            font-size: 1.55rem;
             font-weight: 700;
             background: linear-gradient(135deg, #0f3b5c, #1b6b87);
             background-clip: text;
             -webkit-background-clip: text;
             color: transparent;
-            letter-spacing: -0.3px;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
+            letter-spacing: -0.2px;
         }
         .btn-fullscreen {
             background: #1e293b;
             border: none;
             color: white;
-            padding: 10px 18px;
+            padding: 8px 16px;
             border-radius: 40px;
             font-weight: 600;
-            font-size: 0.85rem;
-            display: inline-flex;
+            font-size: 0.8rem;
+            display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: 0.1s;
             box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
         .btn-fullscreen:active {
@@ -85,35 +82,35 @@
         }
         .sub {
             color: #475569;
-            margin-bottom: 20px;
-            font-size: 0.85rem;
+            margin-bottom: 18px;
+            font-size: 0.8rem;
             border-left: 3px solid #2c7da0;
-            padding-left: 12px;
+            padding-left: 10px;
             margin-top: 4px;
         }
 
         /* Tarjetas estilo moderno */
         .card {
             background: white;
-            border-radius: 32px;
-            padding: 18px 20px;
-            margin-bottom: 22px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.01);
+            border-radius: 28px;
+            padding: 16px 18px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
             transition: all 0.2s;
         }
         .card-title {
             font-weight: 700;
-            font-size: 1.2rem;
-            margin-bottom: 14px;
+            font-size: 1.1rem;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             color: #1e4663;
         }
         .file-label {
             background: #eef2ff;
             border-radius: 50px;
-            padding: 12px 18px;
+            padding: 12px 16px;
             text-align: center;
             cursor: pointer;
             display: block;
@@ -121,16 +118,16 @@
             font-weight: 500;
             border: 1px dashed #94a3b8;
             transition: 0.15s;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
         .file-label:active {
             background: #e2e8f0;
         }
         input[type="file"] { display: none; }
         .status-badge {
-            margin-top: 12px;
-            font-size: 0.8rem;
-            padding: 6px 14px;
+            margin-top: 10px;
+            font-size: 0.75rem;
+            padding: 5px 12px;
             border-radius: 60px;
             display: inline-block;
             background: #e9eef3;
@@ -138,12 +135,12 @@
         .success { background: #d1fae5; color: #065f46; }
         .error { background: #fee2e2; color: #991b1b; }
         .info-text {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #4b5563;
             margin-top: 8px;
         }
 
-        /* Escáner area */
+        /* Escáner area - sin recuadro restrictivo, captura todo el frame */
         .scanner-wrapper {
             width: 100%;
             display: flex;
@@ -153,10 +150,17 @@
         #reader {
             width: 100%;
             max-width: 100%;
-            border-radius: 28px;
+            border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.15);
             background: #000;
+        }
+        /* Configuración para que el escáner tome toda el área disponible */
+        #reader video {
+            width: 100% !important;
+            height: auto !important;
+            object-fit: cover;
+            aspect-ratio: 4 / 3;
         }
         .btn-group {
             display: flex;
@@ -169,13 +173,13 @@
             background: #2c7da0;
             border: none;
             color: white;
-            padding: 12px 20px;
+            padding: 10px 18px;
             border-radius: 60px;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             cursor: pointer;
             flex: 1;
             justify-content: center;
@@ -189,133 +193,131 @@
         }
         .result-card {
             background: #e6f4fa;
-            border-radius: 28px;
-            padding: 12px 16px;
-            margin-top: 16px;
+            border-radius: 24px;
+            padding: 10px 14px;
+            margin-top: 14px;
             text-align: center;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 500;
             transition: all 0.2s;
         }
-        /* Clase para flash verde al escanear */
+        /* Flash verde para escaneo exitoso */
         .scan-success-flash {
             background: #bbf7d0 !important;
             border: 2px solid #15803d;
-            box-shadow: 0 0 0 2px rgba(34,197,94,0.3);
+            box-shadow: 0 0 0 2px rgba(34,197,94,0.4);
         }
 
         /* Zona manual DNI */
         .manual-area {
             background: #f8fafc;
-            border-radius: 28px;
-            padding: 16px;
-            margin-top: 8px;
+            border-radius: 24px;
+            padding: 14px;
+            margin-top: 6px;
             border: 1px solid #e2edf2;
         }
         .dni-flex {
             display: flex;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 10px;
             align-items: center;
         }
         .dni-flex input {
             flex: 2;
-            min-width: 150px;
-            padding: 14px 18px;
+            min-width: 140px;
+            padding: 12px 16px;
             font-size: 1rem;
             border-radius: 60px;
             border: 1px solid #cbd5e1;
             background: white;
             text-align: center;
             font-weight: 500;
-            letter-spacing: 0.5px;
         }
         .dni-flex input:focus {
             outline: none;
             border-color: #2c7da0;
-            box-shadow: 0 0 0 3px rgba(44,125,160,0.2);
+            box-shadow: 0 0 0 2px rgba(44,125,160,0.2);
         }
         .btn-buscar {
             background: #1e6f5c;
             flex: 1;
         }
 
-        /* Tarjetas de resultados */
+        /* Tarjetas de resultados - scroll suave */
         .tarjetas-grid {
             display: flex;
             flex-direction: column;
-            gap: 16px;
-            margin-top: 16px;
-            max-height: 55vh;
+            gap: 14px;
+            margin-top: 14px;
+            max-height: 50vh;
             overflow-y: auto;
             padding-right: 4px;
         }
         .tarjeta {
             background: white;
-            border-radius: 28px;
-            padding: 18px;
+            border-radius: 24px;
+            padding: 16px;
             border-left: 5px solid #2c7da0;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            transition: all 0.1s;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
         .tarjeta-header {
             display: flex;
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 8px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             font-weight: 700;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
         .cuil-highlight {
             background: #d9eef7;
-            padding: 4px 14px;
+            padding: 4px 12px;
             border-radius: 40px;
             font-family: monospace;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 600;
         }
         .detalle {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 12px;
-            font-size: 0.78rem;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 0.72rem;
             color: #1e293b;
         }
         .detalle span {
             background: #f1f5f9;
-            padding: 5px 12px;
+            padding: 4px 10px;
             border-radius: 30px;
         }
         .result-count {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 600;
             background: #d9f0ec;
             display: inline-block;
-            padding: 5px 16px;
+            padding: 4px 14px;
             border-radius: 40px;
-            margin: 4px 0 10px 0;
+            margin: 2px 0 8px 0;
         }
         .no-data {
             text-align: center;
             color: #5b6e8c;
-            padding: 32px 20px;
+            padding: 28px 16px;
             background: #f9fbfe;
-            border-radius: 28px;
-            font-size: 0.9rem;
+            border-radius: 24px;
+            font-size: 0.85rem;
         }
         footer {
             text-align: center;
-            font-size: 0.68rem;
+            font-size: 0.65rem;
             color: #62748c;
-            margin-top: 24px;
+            margin-top: 20px;
             border-top: 1px solid #e2e8f0;
-            padding-top: 18px;
+            padding-top: 14px;
         }
 
         .tarjetas-grid::-webkit-scrollbar {
-            width: 4px;
+            width: 3px;
         }
         .tarjetas-grid::-webkit-scrollbar-track {
             background: #e2e8f0;
@@ -326,16 +328,16 @@
             border-radius: 10px;
         }
 
-        @media (max-width: 500px) {
+        @media (max-width: 550px) {
             .app-container {
-                padding: 12px 12px 32px;
+                padding: 10px 10px 30px;
             }
             .card {
-                padding: 14px 16px;
+                padding: 14px 14px;
             }
             .btn-primary {
-                padding: 10px 16px;
-                font-size: 0.85rem;
+                padding: 8px 14px;
+                font-size: 0.8rem;
             }
         }
     </style>
@@ -343,10 +345,10 @@
 <body>
 <div class="app-container">
     <div class="header-flex">
-        <h1>📱 Afiliado + DNI</h1>
+        <h1>📱 Escáner Total</h1>
         <button id="fullscreenBtn" class="btn-fullscreen">⛶ Pantalla completa</button>
     </div>
-    <div class="sub">🔎 Escáner: extrae DNI (quita primer dígito) | Pitido + efecto verde | Búsqueda en base</div>
+    <div class="sub">🎯 Cámara completa (sin recuadro) | Pitido + flash verde | Busca por DNI en CUILs</div>
 
     <!-- 1. Carga de archivo -->
     <div class="card">
@@ -357,11 +359,11 @@
         <div id="statsInfo" class="info-text"></div>
     </div>
 
-    <!-- 2. Escáner QR / código barras -->
+    <!-- 2. Escáner QR / código barras (captura toda la cámara) -->
     <div class="card">
         <div class="card-title">🔍 2. Escanear código (número de afiliado)</div>
         <div class="scanner-wrapper">
-            <div id="reader" style="width:100%;"></div>
+            <div id="reader"></div>
             <div class="btn-group">
                 <button id="startScanBtn" class="btn-primary">📷 Iniciar escáner</button>
                 <button id="stopScanBtn" class="btn-primary btn-secondary">⏹️ Detener</button>
@@ -380,7 +382,7 @@
                 <input type="number" id="manualDniInput" placeholder="Ej: 12345678" inputmode="numeric">
                 <button id="searchByDniBtn" class="btn-primary btn-buscar">🔎 Buscar</button>
             </div>
-            <div class="info-text" style="margin-top: 12px;">👉 Ingresá DNI sin puntos (6 a 9 dígitos) y presioná buscar.</div>
+            <div class="info-text" style="margin-top: 10px;">👉 Ingresá DNI sin puntos (6 a 9 dígitos).</div>
         </div>
         <div id="manualDniDisplay" class="result-card" style="margin-top: 12px; background:#f1f3f5;">
             🖊️ <strong>DNI a buscar:</strong> (pendiente)
@@ -395,8 +397,8 @@
             <div class="no-data">📌 Cargá un archivo y luego escaneá o ingresá DNI</div>
         </div>
     </div>
-    <footer>✅ La base debe incluir columna 'cuil_usuario_alta' o 'cuil' (11 dígitos).<br>
-    📌 Escáner: el número de afiliado ej: "112345678" -> extrae "12345678" (quita el primer dígito). Además pitido + flash verde.</footer>
+    <footer>✅ Columna requerida: 'cuil_usuario_alta' o 'cuil' (11 dígitos).<br>
+    📌 El escáner quita el primer dígito del código (1 o 2) para obtener el DNI y busca coincidencia en los 8 dígitos centrales del CUIL.</footer>
 </div>
 
 <script>
@@ -407,63 +409,48 @@
     let html5QrCode = null;
     let isScanning = false;
 
-    // Contexto de audio para pitido (Web Audio API) - funciona en Android con interacción usuario
+    // Audio para pitido
     let audioCtx = null;
-    let beepSound = null;
+    let beepReady = false;
 
-    // Inicializar audio context (se activa en el primer click/escaneo)
     function initAudio() {
         if (audioCtx) return;
         try {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            // Crear un oscilador corto para el pitido
-            beepSound = () => {
+            beepReady = () => {
                 if (!audioCtx) return;
                 const now = audioCtx.currentTime;
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
-                osc.frequency.value = 880; // tono agradable
-                gain.gain.value = 0.3;
+                osc.frequency.value = 880;
+                gain.gain.value = 0.25;
                 osc.start();
-                gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.3);
-                osc.stop(now + 0.3);
+                gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.25);
+                osc.stop(now + 0.25);
             };
-        } catch(e) { console.warn("Web Audio no soportado", e); }
+        } catch(e) { console.warn("Audio no soportado"); }
     }
 
-    // Función para emitir pitido y además flash verde en la tarjeta de escaneo
     function playBeepAndFlash() {
-        // 1. Pitido
-        if (audioCtx && beepSound) {
-            // Reanudar si está suspendido (política de navegadores)
+        if (audioCtx && beepReady) {
             if (audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => beepSound()).catch(e=>console.log);
+                audioCtx.resume().then(() => beepReady()).catch(e=>console.log);
             } else {
-                beepSound();
-            }
-        } else {
-            // fallback: crear contexto en el momento
-            initAudio();
-            if (audioCtx && beepSound) {
-                if (audioCtx.state === 'suspended') audioCtx.resume().then(() => beepSound());
-                else beepSound();
+                beepReady();
             }
         }
-        // 2. Efecto verde en el elemento scannedDNIInfo
         const scanCard = document.getElementById('scannedDNIInfo');
         if (scanCard) {
             scanCard.classList.add('scan-success-flash');
-            setTimeout(() => {
-                scanCard.classList.remove('scan-success-flash');
-            }, 400);
+            setTimeout(() => scanCard.classList.remove('scan-success-flash'), 400);
         }
     }
 
     // Mapeo flexible de columnas
     const COL_MAPPING = {
-        cuil: ['cuil_usuario_alta', 'cuil', 'CUIL', 'Cuil', 'numero_cuil'],
+        cuil: ['cuil_usuario_alta', 'cuil', 'CUIL', 'Cuil', 'numero_cuil', 'cuil_usuario'],
         establecimiento: ['establecimiento', 'Establecimiento', 'establec'],
         empresa: ['empresa', 'Empresa', 'razon_social'],
         numero_linea: ['numero_linea', 'linea', 'telefono_linea', 'linea_numero'],
@@ -484,23 +471,21 @@
         return null;
     }
 
-    // FUNCIÓN CLAVE: extraer DNI desde número de afiliado ELIMINANDO EL PRIMER DÍGITO (1 o 2)
-    // Ejemplo: "112345678" -> "12345678". También si solo tiene DNI directo, se respeta.
+    // Extraer DNI eliminando el PRIMER DÍGITO (sea 1 o 2) del código escaneado
     function extractDNIFromAfiliado(afiliadoStr) {
         if (!afiliadoStr) return null;
         let raw = String(afiliadoStr).trim().replace(/[-\s]/g, '');
-        // Si el string tiene al menos 2 dígitos, quitamos el primer caracter (asumimos prefijo 1 o 2)
+        // Quitar el primer caracter SIEMPRE que el string tenga al menos 2 dígitos
         if (raw.length >= 2) {
-            let posibleDNI = raw.substring(1);
-            // Validar que lo que queda sean números y tenga entre 6 y 9 dígitos (DNI argentino)
-            if (/^\d{6,9}$/.test(posibleDNI)) {
-                return posibleDNI;
+            let possibleDNI = raw.substring(1);
+            if (/^\d{6,9}$/.test(possibleDNI)) {
+                return possibleDNI;
             }
         }
-        // Si no cumple, intentar con regex (captura después de primer dígito)
+        // Si sigue sin éxito, usar regex con prefijo 1 o 2
         let match = raw.match(/^[12](\d{6,9})$/);
         if (match && match[1]) return match[1];
-        // fallback: si todo el string es numérico de 6-9 dígitos, usarlo directamente (sin quitar prefijo)
+        // Fallback: si todo es numérico y longitud entre 6-9, asumimos DNI directo
         if (/^\d{6,9}$/.test(raw)) return raw;
         return null;
     }
@@ -544,7 +529,7 @@
                 resultados.push({ ...row, cuilRaw: cuilValue });
             }
         }
-        // eliminar duplicados
+        // eliminar duplicados (por si varias coincidencias)
         const unique = [];
         const map = new Set();
         for (let r of resultados) {
@@ -561,7 +546,7 @@
         const container = document.getElementById('tarjetasContainer');
         const resultInfoSpan = document.getElementById('resultInfo');
         if (!resultados.length) {
-            container.innerHTML = `<div class="no-data">😞 No se encontraron CUILs asociados al DNI <strong>${escapeHtml(dniBuscado)}</strong>.<br>Verifique que la columna 'cuil_usuario_alta' tenga CUILs válidos.</div>`;
+            container.innerHTML = `<div class="no-data">😞 No se encontraron CUILs asociados al DNI <strong>${escapeHtml(dniBuscado)}</strong>.<br>Verifique la columna 'cuil_usuario_alta'.</div>`;
             resultInfoSpan.innerHTML = `🔎 0 coincidencias para DNI: ${escapeHtml(dniBuscado || '?')}`;
             return;
         }
@@ -619,45 +604,52 @@
         renderTarjetas(registros, dni);
     }
 
-    // Evento escáner exitoso: extrae DNI, suena pitido y muestra flash verde, luego busca
+    // Escaneo exitoso: extrae primer dígito y busca
     function onScanSuccess(decodedText) {
         if (!decodedText) return;
-        // Extraer DNI eliminando el primer dígito
         const dniExtraido = extractDNIFromAfiliado(decodedText);
         if (!dniExtraido) {
-            document.getElementById('scannedDNIInfo').innerHTML = `⚠️ <strong>Formato inválido:</strong> "${escapeHtml(decodedText)}" (no se pudo extraer DNI)`;
+            document.getElementById('scannedDNIInfo').innerHTML = `⚠️ <strong>No se pudo extraer DNI</strong> de: "${escapeHtml(decodedText)}" (formato esperado: 1xxxxxx o 2xxxxxx)`;
             return;
         }
-        // ¡Pitido y flash verde!
+        // Pitido + flash!!!
         playBeepAndFlash();
         
         currentDni = dniExtraido;
-        document.getElementById('scannedDNIInfo').innerHTML = `✅ <strong>DNI extraído (sin prefijo):</strong> ${dniExtraido}<br><span style="font-size:0.7rem;">Código original: ${escapeHtml(decodedText)}</span>`;
+        document.getElementById('scannedDNIInfo').innerHTML = `✅ <strong>DNI extraído (sin primer dígito):</strong> ${dniExtraido}<br><span style="font-size:0.7rem;">Código original: ${escapeHtml(decodedText)}</span>`;
         document.getElementById('manualDniInput').value = dniExtraido;
         document.getElementById('manualDniDisplay').innerHTML = `🖊️ <strong>DNI a buscar:</strong> ${dniExtraido}`;
         realizarBusqueda(dniExtraido);
     }
 
-    function onScanFailure(err) { /* silencioso */ }
+    function onScanFailure(err) {
+        // Silencioso para evitar ruido en consola
+    }
 
+    // Configurar escáner SIN recuadro restrictivo (usa todo el video)
     async function startScanner() {
         if (isScanning) return;
-        // Inicializar audio en el primer inicio (para que el navegador permita sonido)
         initAudio();
         if (audioCtx && audioCtx.state === 'suspended') {
-            // Se requiere interacción del usuario para audio, pero el botón ya es interacción.
             audioCtx.resume().catch(e=>console.log);
         }
         if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
         try {
             await html5QrCode.start(
                 { facingMode: "environment" },
-                { fps: 12, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0, disableFlip: false },
+                {
+                    fps: 15,
+                    qrbox: null,          // ← IMPORTANTE: sin recuadro, escanea todo el campo de visión
+                    aspectRatio: 1.333,    // 4:3 típico
+                    disableFlip: false,
+                    experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+                },
                 onScanSuccess,
                 onScanFailure
             );
             isScanning = true;
         } catch (err) {
+            console.error(err);
             alert("No se pudo acceder a la cámara. Verificá permisos.");
         }
     }
@@ -669,7 +661,7 @@
         }
     }
 
-    // Cargar archivo Excel/CSV
+    // Manejo de archivo Excel/CSV
     function handleFileUpload(file) {
         const fileExt = file.name.split('.').pop().toLowerCase();
         const reader = new FileReader();
@@ -723,19 +715,19 @@
         realizarBusqueda(currentDni);
     }
 
-    // Fullscreen API
+    // Fullscreen
     function toggleFullscreen() {
         if (!document.fullscreenElement && !document.webkitFullscreenElement) {
             const elem = document.documentElement;
-            const requestMethod = elem.requestFullscreen || elem.webkitRequestFullscreen;
-            if (requestMethod) {
-                requestMethod.call(elem);
+            const req = elem.requestFullscreen || elem.webkitRequestFullscreen;
+            if (req) {
+                req.call(elem);
                 document.body.classList.add('fullscreen-mode');
             }
         } else {
-            const exitMethod = document.exitFullscreen || document.webkitExitFullscreen;
-            if (exitMethod) {
-                exitMethod.call(document);
+            const exit = document.exitFullscreen || document.webkitExitFullscreen;
+            if (exit) {
+                exit.call(document);
                 document.body.classList.remove('fullscreen-mode');
             }
         }
@@ -749,7 +741,7 @@
         else document.body.classList.add('fullscreen-mode');
     });
 
-    // Listeners
+    // Event listeners
     document.getElementById('fileInput').addEventListener('change', (e) => {
         if (e.target.files[0]) handleFileUpload(e.target.files[0]);
         else { dataset = []; showFileStatus("Ningún archivo", false); }
@@ -761,6 +753,7 @@
     document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
 
     window.addEventListener('beforeunload', () => { if (html5QrCode && isScanning) html5QrCode.stop(); });
+
     function escapeHtml(str) {
         if (!str) return '';
         return String(str).replace(/[&<>]/g, function(m) {
@@ -770,9 +763,9 @@
             return m;
         });
     }
-    // Precarga mensaje
+
     document.getElementById('tarjetasContainer').innerHTML = `<div class="no-data">📲 Cargá un archivo .xlsx o .csv con la base de afiliados.</div>`;
-    // Inicializar audio con el primer toque en el documento
+    // Activar audio con primer toque
     document.body.addEventListener('touchstart', () => {
         if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
     }, { once: true });
