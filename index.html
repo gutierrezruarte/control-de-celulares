@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Afiliados Scanner + DNI | Fullscreen</title>
+    <title>Afiliados Scanner + DNI | Con Pitido y DNI Exacto</title>
     <!-- Librería para leer códigos de barras -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <!-- Librería para procesar Excel / CSV -->
@@ -23,14 +23,14 @@
             transition: all 0.2s ease;
         }
 
-        /* Contenedor principal */
+        /* Contenedor principal responsivo */
         .app-container {
             max-width: 700px;
             margin: 0 auto;
             padding: 16px 14px 40px 14px;
         }
 
-        /* Modo pantalla completa: ocupa todo el viewport */
+        /* Modo pantalla completa */
         body.fullscreen-mode {
             background: #0b2b38;
         }
@@ -41,7 +41,6 @@
         }
         body.fullscreen-mode .card {
             background: rgba(255,255,255,0.96);
-            backdrop-filter: blur(0px);
         }
 
         /* Header con botón fullscreen */
@@ -196,6 +195,13 @@
             text-align: center;
             font-size: 0.9rem;
             font-weight: 500;
+            transition: all 0.2s;
+        }
+        /* Clase para flash verde al escanear */
+        .scan-success-flash {
+            background: #bbf7d0 !important;
+            border: 2px solid #15803d;
+            box-shadow: 0 0 0 2px rgba(34,197,94,0.3);
         }
 
         /* Zona manual DNI */
@@ -308,7 +314,6 @@
             padding-top: 18px;
         }
 
-        /* Scroll suave */
         .tarjetas-grid::-webkit-scrollbar {
             width: 4px;
         }
@@ -341,12 +346,12 @@
         <h1>📱 Afiliado + DNI</h1>
         <button id="fullscreenBtn" class="btn-fullscreen">⛶ Pantalla completa</button>
     </div>
-    <div class="sub">🔎 Escáner código barras | ✍️ Ingreso manual | Busca por DNI en tu base</div>
+    <div class="sub">🔎 Escáner: extrae DNI (quita primer dígito) | Pitido + efecto verde | Búsqueda en base</div>
 
     <!-- 1. Carga de archivo -->
     <div class="card">
         <div class="card-title">📂 1. Base de datos (Excel/CSV)</div>
-        <label class="file-label" for="fileInput">📎 Seleccionar archivo .xlsx o .csv</label>
+        <label class="file-label" for="fileInput">📎 Seleccionar .xlsx o .csv</label>
         <input type="file" id="fileInput" accept=".xlsx, .xls, .csv, .CSV, .XLSX">
         <div id="fileStatus" class="status-badge">⚡ Sin archivo cargado</div>
         <div id="statsInfo" class="info-text"></div>
@@ -362,7 +367,7 @@
                 <button id="stopScanBtn" class="btn-primary btn-secondary">⏹️ Detener</button>
             </div>
             <div id="scannedDNIInfo" class="result-card">
-                📍 <strong>Último DNI:</strong> ---
+                📍 <strong>Último DNI extraído:</strong> ---
             </div>
         </div>
     </div>
@@ -391,7 +396,7 @@
         </div>
     </div>
     <footer>✅ La base debe incluir columna 'cuil_usuario_alta' o 'cuil' (11 dígitos).<br>
-    📌 Escáner interpreta afiliado con formato: 1 + DNI (masculino) o 2 + DNI (femenino).</footer>
+    📌 Escáner: el número de afiliado ej: "112345678" -> extrae "12345678" (quita el primer dígito). Además pitido + flash verde.</footer>
 </div>
 
 <script>
@@ -402,7 +407,61 @@
     let html5QrCode = null;
     let isScanning = false;
 
-    // Mapeo flexible
+    // Contexto de audio para pitido (Web Audio API) - funciona en Android con interacción usuario
+    let audioCtx = null;
+    let beepSound = null;
+
+    // Inicializar audio context (se activa en el primer click/escaneo)
+    function initAudio() {
+        if (audioCtx) return;
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            // Crear un oscilador corto para el pitido
+            beepSound = () => {
+                if (!audioCtx) return;
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.frequency.value = 880; // tono agradable
+                gain.gain.value = 0.3;
+                osc.start();
+                gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.3);
+                osc.stop(now + 0.3);
+            };
+        } catch(e) { console.warn("Web Audio no soportado", e); }
+    }
+
+    // Función para emitir pitido y además flash verde en la tarjeta de escaneo
+    function playBeepAndFlash() {
+        // 1. Pitido
+        if (audioCtx && beepSound) {
+            // Reanudar si está suspendido (política de navegadores)
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => beepSound()).catch(e=>console.log);
+            } else {
+                beepSound();
+            }
+        } else {
+            // fallback: crear contexto en el momento
+            initAudio();
+            if (audioCtx && beepSound) {
+                if (audioCtx.state === 'suspended') audioCtx.resume().then(() => beepSound());
+                else beepSound();
+            }
+        }
+        // 2. Efecto verde en el elemento scannedDNIInfo
+        const scanCard = document.getElementById('scannedDNIInfo');
+        if (scanCard) {
+            scanCard.classList.add('scan-success-flash');
+            setTimeout(() => {
+                scanCard.classList.remove('scan-success-flash');
+            }, 400);
+        }
+    }
+
+    // Mapeo flexible de columnas
     const COL_MAPPING = {
         cuil: ['cuil_usuario_alta', 'cuil', 'CUIL', 'Cuil', 'numero_cuil'],
         establecimiento: ['establecimiento', 'Establecimiento', 'establec'],
@@ -425,15 +484,24 @@
         return null;
     }
 
-    // Extraer DNI desde código de afiliado (ej: 112345678 -> 12345678)
+    // FUNCIÓN CLAVE: extraer DNI desde número de afiliado ELIMINANDO EL PRIMER DÍGITO (1 o 2)
+    // Ejemplo: "112345678" -> "12345678". También si solo tiene DNI directo, se respeta.
     function extractDNIFromAfiliado(afiliadoStr) {
         if (!afiliadoStr) return null;
         let raw = String(afiliadoStr).trim().replace(/[-\s]/g, '');
-        if (/^\d{6,9}$/.test(raw)) return raw;
+        // Si el string tiene al menos 2 dígitos, quitamos el primer caracter (asumimos prefijo 1 o 2)
+        if (raw.length >= 2) {
+            let posibleDNI = raw.substring(1);
+            // Validar que lo que queda sean números y tenga entre 6 y 9 dígitos (DNI argentino)
+            if (/^\d{6,9}$/.test(posibleDNI)) {
+                return posibleDNI;
+            }
+        }
+        // Si no cumple, intentar con regex (captura después de primer dígito)
         let match = raw.match(/^[12](\d{6,9})$/);
         if (match && match[1]) return match[1];
-        let looseMatch = raw.match(/(?:1|2)(\d{6,9})/);
-        if (looseMatch && looseMatch[1]) return looseMatch[1];
+        // fallback: si todo el string es numérico de 6-9 dígitos, usarlo directamente (sin quitar prefijo)
+        if (/^\d{6,9}$/.test(raw)) return raw;
         return null;
     }
 
@@ -451,7 +519,7 @@
         return null;
     }
 
-    // Buscar registros cuyo CUIL contenga el DNI exacto en los 8 dígitos centrales
+    // Buscar registros cuyo CUIL contenga el DNI exacto (8 dígitos centrales)
     function buscarRegistrosPorDNI(dni) {
         if (!dataset.length) return [];
         if (!dni) return [];
@@ -476,7 +544,7 @@
                 resultados.push({ ...row, cuilRaw: cuilValue });
             }
         }
-        // eliminar duplicados simples
+        // eliminar duplicados
         const unique = [];
         const map = new Set();
         for (let r of resultados) {
@@ -551,16 +619,20 @@
         renderTarjetas(registros, dni);
     }
 
-    // Eventos escáner
+    // Evento escáner exitoso: extrae DNI, suena pitido y muestra flash verde, luego busca
     function onScanSuccess(decodedText) {
         if (!decodedText) return;
+        // Extraer DNI eliminando el primer dígito
         const dniExtraido = extractDNIFromAfiliado(decodedText);
         if (!dniExtraido) {
-            document.getElementById('scannedDNIInfo').innerHTML = `⚠️ <strong>Formato inválido:</strong> "${escapeHtml(decodedText)}" (no se extrajo DNI)`;
+            document.getElementById('scannedDNIInfo').innerHTML = `⚠️ <strong>Formato inválido:</strong> "${escapeHtml(decodedText)}" (no se pudo extraer DNI)`;
             return;
         }
+        // ¡Pitido y flash verde!
+        playBeepAndFlash();
+        
         currentDni = dniExtraido;
-        document.getElementById('scannedDNIInfo').innerHTML = `✅ <strong>DNI escaneado:</strong> ${dniExtraido}<br><span style="font-size:0.7rem;">Código: ${escapeHtml(decodedText)}</span>`;
+        document.getElementById('scannedDNIInfo').innerHTML = `✅ <strong>DNI extraído (sin prefijo):</strong> ${dniExtraido}<br><span style="font-size:0.7rem;">Código original: ${escapeHtml(decodedText)}</span>`;
         document.getElementById('manualDniInput').value = dniExtraido;
         document.getElementById('manualDniDisplay').innerHTML = `🖊️ <strong>DNI a buscar:</strong> ${dniExtraido}`;
         realizarBusqueda(dniExtraido);
@@ -570,6 +642,12 @@
 
     async function startScanner() {
         if (isScanning) return;
+        // Inicializar audio en el primer inicio (para que el navegador permita sonido)
+        initAudio();
+        if (audioCtx && audioCtx.state === 'suspended') {
+            // Se requiere interacción del usuario para audio, pero el botón ya es interacción.
+            audioCtx.resume().catch(e=>console.log);
+        }
         if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
         try {
             await html5QrCode.start(
@@ -641,11 +719,11 @@
         }
         currentDni = dniRaw;
         document.getElementById('manualDniDisplay').innerHTML = `🖊️ <strong>DNI a buscar:</strong> ${dniRaw}`;
-        document.getElementById('scannedDNIInfo').innerHTML = `📍 <strong>Último DNI:</strong> ${dniRaw} (manual)`;
+        document.getElementById('scannedDNIInfo').innerHTML = `📍 <strong>Último DNI extraído:</strong> ${dniRaw} (manual)`;
         realizarBusqueda(currentDni);
     }
 
-    // Fullscreen API - compatible móviles
+    // Fullscreen API
     function toggleFullscreen() {
         if (!document.fullscreenElement && !document.webkitFullscreenElement) {
             const elem = document.documentElement;
@@ -662,13 +740,9 @@
             }
         }
     }
-    // Evento para detectar salida de fullscreen con ESC
     document.addEventListener('fullscreenchange', () => {
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-            document.body.classList.remove('fullscreen-mode');
-        } else {
-            document.body.classList.add('fullscreen-mode');
-        }
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) document.body.classList.remove('fullscreen-mode');
+        else document.body.classList.add('fullscreen-mode');
     });
     document.addEventListener('webkitfullscreenchange', () => {
         if (!document.webkitFullscreenElement) document.body.classList.remove('fullscreen-mode');
@@ -696,8 +770,12 @@
             return m;
         });
     }
-    // Inicial
+    // Precarga mensaje
     document.getElementById('tarjetasContainer').innerHTML = `<div class="no-data">📲 Cargá un archivo .xlsx o .csv con la base de afiliados.</div>`;
+    // Inicializar audio con el primer toque en el documento
+    document.body.addEventListener('touchstart', () => {
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }, { once: true });
 </script>
 </body>
 </html>
